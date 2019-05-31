@@ -3,6 +3,8 @@
 namespace app\console;
 
 use app\services\StatsGenerator;
+use Blackfire\Client;
+use Blackfire\Profile\Configuration;
 use Yii;
 use yii\base\Module;
 use yii\console\Controller;
@@ -55,6 +57,12 @@ class DaemonController extends Controller
 
     private function handler(): void
     {
+        $blackfire = new Client();
+        $config = new Configuration();
+        $config->setTitle('Daemon run ' . (new \DateTime())->format(\DATE_ATOM));
+
+        $probe = $blackfire->createProbe($config);
+
         $stats = $this->stats->generate();
 
         echo Console::renderColoredString('%NTotal articles:%n ' . $stats->getArticlesCount() . PHP_EOL);
@@ -77,5 +85,9 @@ class DaemonController extends Controller
         }
         $table->setRows($rows);
         echo $table->run();
+
+        $profile = $blackfire->endProbe($probe);
+
+        echo '>> PROFILE: ' . $profile->getUrl();
     }
 }
