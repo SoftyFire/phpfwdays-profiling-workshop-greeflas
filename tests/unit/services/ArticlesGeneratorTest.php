@@ -2,7 +2,6 @@
 
 namespace app\tests;
 
-use app\models\Article;
 use app\services\ArticlesGenerator;
 use Blackfire\Bridge\PhpUnit\TestCaseTrait;
 use Blackfire\Profile\Configuration;
@@ -33,19 +32,16 @@ class ArticlesGeneratorTest extends TestCase
         // define some assertions
         $config
             ->defineMetric(new Metric('tags.search', '=app\models\Tag::find'))
+            ->defineMetric(new Metric('ensure_tag', '=app\services\ArticlesGenerator::ensureTag'))
             ->assert('metrics.sql.queries.count < 20', 'SQL queries count')
-            ->assert('metrics.tags.search.count < 10', 'Tags search count')
-            // ...
+            ->assert('metrics.tags.search.count < metrics.ensure_tag.count', 'Cache is used')
         ;
 
         $profile = $this->assertBlackfire($config, function () {
             $articles = $this->generator->generate(1);
-            $this->assertContainsOnlyInstancesOf(Article::class, $articles);
             $article = $articles[0];
-            $this->assertNotEmpty($article->title);
-            $this->assertNotEmpty($article->text);
-            $this->assertNotEmpty($article->id);
-            $this->assertNotEmpty($article->tags);
+            $this->assertNotEmpty($article['title']);
+            $this->assertNotEmpty($article['text']);
         });
     }
 }
