@@ -4,6 +4,7 @@ namespace app\console;
 
 use app\services\StatsGenerator;
 use Blackfire\Client;
+use Blackfire\LoopClient;
 use Blackfire\Profile\Configuration;
 use Yii;
 use yii\base\Module;
@@ -47,7 +48,7 @@ class DaemonController extends Controller
             file_put_contents($taskFile, '');
             echo ' [NEW] Consumed task at ', date(DATE_ATOM), PHP_EOL;
 
-            $this->handler();
+            $this->loopHandler();
 
             echo PHP_EOL, ' [OK] Task done', PHP_EOL, PHP_EOL;
         }
@@ -89,5 +90,22 @@ class DaemonController extends Controller
         $profile = $blackfire->endProbe($probe);
 
         echo '>> PROFILE: ' . $profile->getUrl();
+    }
+
+    private function loopHandler(): void
+    {
+        $blackfire = new LoopClient(new Client(), 3);
+        $config = new Configuration();
+        $config->setTitle('Daemon run at ' . (new \DateTime())->format(DATE_ATOM));
+
+        for ($i = 0; $i < 5; $i++) {
+            $blackfire->startLoop($config);
+                $stats = $this->stats->generate();
+            $profile = $blackfire->endLoop();
+
+            if ($profile !== null) {
+                echo ' >> PROFILE: ', $profile->getUrl() . \PHP_EOL;
+            }
+        }
     }
 }

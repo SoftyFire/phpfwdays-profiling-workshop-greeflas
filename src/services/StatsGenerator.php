@@ -19,6 +19,8 @@ class StatsGenerator
      */
     public function generate(): ArticlesStats
     {
+        // TODO: fetch posts here and pass their to all count* methods.
+
         return new ArticlesStats($this->countPerWord(), $this->articlesCount(), $this->countPerTag());
     }
 
@@ -45,7 +47,7 @@ class StatsGenerator
      */
     private function articlesCount(): int
     {
-        return \count(Article::find()->all());
+        return Article::find()->count();
     }
 
     /**
@@ -72,7 +74,7 @@ class StatsGenerator
     private function countPerTag(): array
     {
         /** @var Article[] $articles */
-        $articles = Article::find()->all();
+        $articles = Article::find()->with('tags')->all();
         $tagsCount = [];
 
         foreach ($articles as $article) {
