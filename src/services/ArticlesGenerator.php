@@ -3,8 +3,10 @@
 namespace app\services;
 
 use app\models\Article;
+use app\models\ArticleTags;
 use app\models\Tag;
 use joshtronic\LoremIpsum;
+use yii\helpers\ArrayHelper;
 
 /**
  * Class ArticlesGenerator
@@ -19,6 +21,8 @@ class ArticlesGenerator
      * @var LoremIpsum
      */
     private $ipsum;
+
+    private $tags = [];
 
     /**
      * ArticlesGenerator constructor.
@@ -38,8 +42,18 @@ class ArticlesGenerator
     {
         $articles = [];
         for ($i = 0; $i < $number; $i++) {
-            $articles[] = $this->createRandomArticles();
+            $article = $this->createRandomArticles();
+
+            $articles[] = [
+                'title' => $article->title,
+                'text' => $article->text,
+            ];
         }
+
+        ArticleTags::getDb()->createCommand()
+            ->batchInsert(Article::tableName(), ['title', 'text'], $articles)
+            ->execute()
+        ;
 
         return $articles;
     }
@@ -53,16 +67,16 @@ class ArticlesGenerator
             'title' => $this->generateRandomTitle(),
             'text' => $this->generateRandomText(),
         ]);
-        $article->save();
+        $article->insert(false);
         $this->generateTagsForArticle($article);
 
         return $article;
     }
 
     /**
-     * @return Tag
+     * @return int
      */
-    private function getRandomTag(): Tag
+    private function getRandomTag(): int
     {
         $tags = [
             'hit',
@@ -86,18 +100,23 @@ class ArticlesGenerator
 
     /**
      * @param string $name
-     * @return Tag
+     * @return int
      */
-    private function ensureTag(string $name): Tag
+    private function ensureTag(string $name): int
     {
-        if ($tag = Tag::find()->where(['name' => $name])->one()) {
-            return $tag;
+        if (isset($this->tags[$name])) {
+            return  $this->tags[$name];
         }
 
-        $tag = new Tag(['name' => $name]);
-        $tag->save();
+        if ($tagId = Tag::find()->select('id')->where(['name' => $name])->scalar()) {
+            $this->tags[$name] = $tagId;
+        } else {
+            $tag = new Tag(['name' => $name]);
+            $tag->insert(false);
+            $this->tags[$name] = $tag->id;
+        }
 
-        return $tag;
+        return $this->tags[$name];
     }
 
     /**
@@ -108,9 +127,16 @@ class ArticlesGenerator
     {
         $count = mt_rand(1, 5);
 
+        $xrefs = [];
+
         for ($i = 0; $i < $count; $i++) {
-            $article->link('tags', $this->getRandomTag());
+            $xrefs[] = [$article->id, $this->getRandomTag()];
         }
+
+        ArticleTags::getDb()->createCommand()
+            ->batchInsert(ArticleTags::tableName(), ['article_id', 'tag_id'], $xrefs)
+            ->execute()
+        ;
     }
 
     /**
